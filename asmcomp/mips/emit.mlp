@@ -353,12 +353,18 @@ let emit_instr i =
     | Lop(Iintop(Icheckbound)) ->
         if !range_check_trap = 0 then range_check_trap := new_label();
         `	bleu	{emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}, {emit_label !range_check_trap}\n`
+    | Lop(Iintop Imulh) ->
+	`	mult	{emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}\n`;
+	`	mfhi	{emit_reg i.res.(0)}\n`
     | Lop(Iintop op) ->
         let instr = name_for_int_operation op in
         `	{emit_string instr}	{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}\n`
     | Lop(Iintop_imm(Icheckbound, n)) ->
         if !range_check_trap = 0 then range_check_trap := new_label();
         `	bleu	{emit_reg i.arg.(0)}, {emit_int n}, {emit_label !range_check_trap}\n`
+    | Lop(Iintop_imm(Imulh, n)) ->
+	`	mult	{emit_reg i.arg.(0)}, {emit_int n}\n`;
+	`	mfhi	{emit_reg i.res.(0)}\n`
     | Lop(Iintop_imm(op, n)) ->
         let instr = name_for_int_operation op in
         `	{emit_string instr}	{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}, {emit_int n}\n`
