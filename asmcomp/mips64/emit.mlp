@@ -186,8 +186,6 @@ let name_for_int_operation = function
     Iadd -> "daddu"
   | Isub -> "dsubu"
   | Imul -> "dmul"
-  | Idiv -> "ddiv"
-  | Imod -> "drem"
   | Iand -> "and"
   | Ior  -> "or"
   | Ixor -> "xor"
@@ -366,6 +364,12 @@ let emit_instr i =
         `	bleu	{emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}, {emit_label !range_check_trap}\n`
     | Lop(Iintop Imulh) ->
         `	dmult	{emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}\n`;
+        `	mfhi	{emit_reg i.res.(0)}\n`
+    | Lop(Iintop Idiv) ->
+        `	ddiv	$zero,{emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}\n`;
+        `	mflo	{emit_reg i.res.(0)}\n`
+    | Lop(Iintop Imod) ->
+        `	ddiv	$zero,{emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}\n`;
         `	mfhi	{emit_reg i.res.(0)}\n`
     | Lop(Iintop op) ->
         let instr = name_for_int_operation op in
