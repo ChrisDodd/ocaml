@@ -3,6 +3,9 @@ Next version:
 
 (Changes that can break existing programs are marked with a "*")
 
+Camlp4:
+- Removed from the official distribution
+
 Other libraries:
 * Labltk: removed from the distribution, now available as a third-party library
 
@@ -54,7 +57,7 @@ Features wishes:
 - PR#5650: Camlp4FoldGenerator doesn't handle well "abstract" types
 - PR#6071: Add a -noinit option to the toplevel (patch by David Sheets)
 - PR#6166: document -ocamldoc option of ocamlbuild
-
+- PR#6246: allow wilcard _ as for-loop index
 
 OCaml 4.01.1:
 -------------
@@ -66,6 +69,10 @@ Bug fixes:
 - PR#6235: Issue with type information flowing through a variant pattern
 - PR#6240: Fail to expand module type abbreviation during substyping
 - PR#6241: Assumed inequality between paths involving functor arguments
+- PR#6243: Make "ocamlopt -g" more resistant to ill-formed locations
+- PR#6239: sometimes wrong stack alignment when raising exceptions
+  in -g mode with backtraces active
+
 
 OCaml 4.01.0:
 -------------
