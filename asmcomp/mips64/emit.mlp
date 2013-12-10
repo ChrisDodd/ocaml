@@ -261,7 +261,9 @@ let emit_instr i =
         `{record_frame i.live}\n`
     | Lop(Icall_imm s) ->
         liveregs i 0;
-        `	jal	{emit_symbol s}\n`;
+        `	dla	$25, {emit_symbol s}\n`;
+        liveregs i live_25;
+        `	jal	$25\n`;
         `{record_frame i.live}\n`
     | Lop(Itailcall_ind) ->
         let n = frame_size() in
@@ -294,9 +296,13 @@ let emit_instr i =
         if alloc then begin
           `	dla	$24, {emit_symbol s}\n`;
           liveregs i live_24;
+          `	dla	$25, caml_c_call\n`;
+          liveregs i live_25;
           `	jal	caml_c_call\n`;
           `{record_frame i.live}\n`
         end else begin
+          `	dla	$25, {emit_symbol s}\n`;
+          liveregs i live_25;
           `	jal	{emit_symbol s}\n`
         end
    | Lop(Istackoffset n) ->
