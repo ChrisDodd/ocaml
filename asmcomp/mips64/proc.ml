@@ -142,18 +142,19 @@ let loc_results res =
    the first 8 arguments are passed either in integer regs $4...$11
    or float regs $f12...$f19.  Each argument "consumes" both one slot
    in the int register file and one slot in the float register file.
-   Extra arguments are passed on stack, in a 64-bits slot *)
+   With softfloat_abi, all arguments are passed in int regs; float regs are
+   never used.  Extra arguments are passed on stack, in a 64-bits slot *)
 
 let loc_external_arguments arg =
   let loc = Array.create (Array.length arg) Reg.dummy in
   let int = ref 2 in
-  let float = ref 112 in
+  let float = if softfloat_abi then int else ref 112 in
   let ofs = ref 0 in
   for i = 0 to Array.length arg - 1 do
     if i < 8 then begin
       loc.(i) <- phys_reg (if arg.(i).typ = Float then !float else !int);
       incr int;
-      incr float
+      if float <> int then incr float
     end else begin
       loc.(i) <- stack_slot (Outgoing !ofs) arg.(i).typ;
       ofs := !ofs + 8
@@ -162,7 +163,12 @@ let loc_external_arguments arg =
   (loc, Misc.align !ofs 16)
 
 let loc_external_results res =
-  let (loc, ofs) = calling_conventions 0 0 100 100 not_supported res in loc
+  let (loc, ofs) =
+    if softfloat_abi then
+      calling_conventions 0 0 0 0 not_supported res
+    else
+      calling_conventions 0 0 100 100 not_supported res
+    in loc
 
 let loc_exn_bucket = phys_reg 0         (* $2 *)
 

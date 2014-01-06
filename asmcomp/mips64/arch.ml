@@ -71,3 +71,6 @@ let print_addressing printreg addr ppf arg =
 
 let print_specific_operation printreg op ppf arg =
   fatal_error "Arch_mips.print_specific_operation"
+
+(* ABI choices -- FIXME -- should be set up by configure? *)
+let softfloat_abi = true

@@ -226,6 +226,10 @@ let emit_instr i =
               `	move	{emit_reg dst}, {emit_reg src}\n`
           | {loc = Reg rs; typ = Float}, {loc = Reg rd; typ = Float} ->
               `	mov.d	{emit_reg dst}, {emit_reg src}\n`
+          | {loc = Reg rs; typ = Int|Addr}, {loc = Reg rd; typ = Float} ->
+              `	dmtc1	{emit_reg src}, {emit_reg dst}\n`
+          | {loc = Reg rs; typ = Float}, {loc = Reg rd; typ = Int|Addr} ->
+              `	dmfc1	{emit_reg dst}, {emit_reg src}\n`
           | {loc = Reg rs; typ = Int|Addr}, {loc = Stack sd} ->
               `	sd	{emit_reg src}, {emit_stack dst}\n`
           | {loc = Reg rs; typ = Float}, {loc = Stack sd} ->
