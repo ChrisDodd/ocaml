@@ -285,6 +285,7 @@ let emit_instr i =
         if s = !function_name then begin
           `	b	{emit_label !tailrec_entry_point}\n`
         end else begin
+          `	dla	$25, {emit_symbol s}\n`;
           let n = frame_size() in
           if !contains_calls then
             `	ld	$31, {emit_int(n - 8)}($sp)\n`;
@@ -292,7 +293,6 @@ let emit_instr i =
             `	ld	$gp, {emit_int(n - 16)}($sp)\n`;
           if n > 0 then
             `	daddu	$sp, $sp, {emit_int n}\n`;
-          `	dla	$25, {emit_symbol s}\n`;
           liveregs i live_25;
           `	j	$25\n`
         end
