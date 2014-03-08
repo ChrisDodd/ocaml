@@ -404,11 +404,11 @@ let emit_instr i =
         let instr = name_for_float_operation op in
         `	{emit_string instr}	{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}\n`
     | Lop(Ifloatofint) ->
-        `	mtc1	{emit_reg i.arg.(0)}, {emit_reg i.res.(0)}\n`;
-        `	cvt.d.w	{emit_reg i.res.(0)}, {emit_reg i.res.(0)}\n`
+        `	dmtc1	{emit_reg i.arg.(0)}, {emit_reg i.res.(0)}\n`;
+        `	cvt.d.l	{emit_reg i.res.(0)}, {emit_reg i.res.(0)}\n`
     | Lop(Iintoffloat) ->
-        `	trunc.w.d	$f31, {emit_reg i.arg.(0)}, $24\n`;
-        `	mfc1	{emit_reg i.res.(0)}, $f31\n`
+        `	trunc.l.d	$f31, {emit_reg i.arg.(0)}\n`;
+        `	dmfc1	{emit_reg i.res.(0)}, $f31\n`
     | Lop(Ispecific sop) ->
         fatal_error "Emit_mips: Ispecific"
     | Lreloadretaddr ->
