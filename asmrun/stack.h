@@ -56,6 +56,18 @@
 #define Callback_link(sp) ((struct caml_context *)((sp) + 16))
 #endif
 
+#ifdef TARGET_mips
+#define Trap_frame_size 16
+#define Saved_return_address(sp) *((intnat *)((sp) - 4))
+#define Callback_link(sp) ((struct caml_context *)((sp) + Trap_frame_size))
+#endif
+
+#ifdef TARGET_mips64
+#define Trap_frame_size 32
+#define Saved_return_address(sp) *((intnat *)((sp) - 8))
+#define Callback_link(sp) ((struct caml_context *)((sp) + Trap_frame_size))
+#endif
+
 /* Structure of OCaml callback contexts */
 
 struct caml_context {

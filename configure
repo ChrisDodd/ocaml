@@ -314,6 +314,12 @@ case "$bytecc,$host" in
     # (For those who want to force "cc -64")
     # Turn off warning "unused library"
     bytecclinkopts="-Wl,-woff,84";;
+  *gcc*,mips-*)
+    bytecccompopts="-mabi=n32"
+    bytecclinkopts="-mabi=n32";;
+  *gcc*,mips64-*)
+    bytecccompopts="-mabi=64"
+    bytecclinkopts="-mabi=64";;
   *,alpha*-*-unicos*)
     # For the Cray T3E
     bytecccompopts="-DUMK";;
@@ -694,6 +700,10 @@ case "$host" in
                                   arch=i386; system=macosx
                                 fi;;
   i[3456]86-*-gnu*)             arch=i386; system=gnu;;
+  mips64-*-freebsd*)		arch=mips64; system=freebsd;;
+  mips64-*)			arch=mips64;;
+  mips-*-freebsd*)		arch=mips; system=freebsd;;
+  mips-*)			arch=mips;;
   powerpc*-*-linux*)            arch=power; model=ppc; system=elf;;
   powerpc-*-netbsd*)            arch=power; model=ppc; system=elf;;
   powerpc-*-openbsd*)           arch=power; model=ppc; system=bsd_elf;;
@@ -749,6 +759,12 @@ case "$arch,$nativecc,$system,$host_type" in
   *,gcc*,cygwin,*)     nativecccompopts="$gcc_warnings -U_WIN32";;
   amd64,gcc*,macosx,*) partialld="ld -r -arch x86_64";;
   amd64,gcc*,solaris,*) partialld="ld -r -m elf_x86_64";;
+  mips64,*gcc*,freebsd,*)
+		       nativecccompopts="$gcc_warnings -mabi=64"
+		       nativecclinkopts="-melf64btsmip_fbsd";;
+  mips64,*gcc*,*,*)    nativecccompopts="$gcc_warnings -mabi=64"
+		       nativecclinkopts="-melf64btsmip";;
+  mips,*gcc*,*,*)      nativecccompopts="$gcc_warnings -mabi=n32";;
   *,gcc*,*,*)          nativecccompopts="$gcc_warnings";;
 esac
 
@@ -785,6 +801,10 @@ case "$arch,$model,$system" in
                     esac;;
   sparc,*,*)        as='as'
                     aspp='gcc -c';;
+  mips64,*)         as="${TOOLPREF}as -mabi=64 -KPIC"
+                    aspp="${TOOLPREF}gcc -mabi=64 -c";;
+  mips,*)           as="${TOOLPREF}as -mabi=n32 -KPIC"
+                    aspp="${TOOLPREF}gcc -mabi=n32 -c";;
 esac
 
 if test -n "$asoption"; then as="$asoption"; fi
@@ -1188,6 +1208,8 @@ case "$arch" in
             then bng_asm_level=2
             else bng_asm_level=1
             fi;;
+  mips)	    bng_arch=mips; bng_asm_level=1;;
+  mips64)   bng_arch=mips64; bng_asm_level=1;;
   power)    bng_arch=ppc; bng_asm_level=1;;
   amd64)    bng_arch=amd64; bng_asm_level=1;;
   *)        bng_arch=generic; bng_asm_level=0;;
