@@ -159,7 +159,8 @@ caml_call_gc:
     /* Say that we are back into Caml code */
         sd      $0, caml_last_return_address
     /* Adjust return address to restart the allocation sequence */
-        dsubu   $31, $31, 16
+    /* DANGER -- needs to match up with mips64/emit.mlp code */
+        dsubu   $31, $31, 24
     /* Return */
         .cpreturn
         daddu   $sp, $sp, 0x1b8

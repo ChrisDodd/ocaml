@@ -357,6 +357,7 @@ let emit_instr i =
     | Lop(Ialloc n) ->
         let lbl = new_label() in
         if !call_gc_label = 0 then call_gc_label := new_label();
+	(* DANGER -- needs to match up with fixup code in mips64.s *)
         `	.set	noreorder\n`;
         `	dsubu	$22, $22, {emit_int n}\n`;
         `	dsubu	$24, $22, $23\n`;
@@ -518,8 +519,12 @@ let fundecl fundecl =
   `	.ent	{emit_symbol fundecl.fun_name}\n`;
   `{emit_symbol fundecl.fun_name}:\n`;
   let n = frame_size() in
-  if n > 0 then
+  if n > 0 then begin
+    `	.frame	$sp, {emit_int n}, $31\n`;
+    if !contains_calls then
+      `	.mask	0x90000000, -8\n`;
     `	dsubu	$sp, $sp, {emit_int n}\n`;
+  end;
   if !contains_calls then
     `	sd	$31, {emit_int(n - 8)}($sp)\n`;
   if !uses_gp then begin
