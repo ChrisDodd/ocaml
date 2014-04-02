@@ -364,7 +364,8 @@ let emit_instr i =
      (* `	bltzal	$24, {emit_label !call_gc_label}\n`; *)
         `	bgez	$24, {emit_label lbl}\n`;
         `	daddu	{emit_reg i.res.(0)}, $22, 8\n`;
-        `	bal	{emit_label !call_gc_label}\n`;
+	(* gas -kPIC inserts an extra `ld` here for relocation *)
+        `	jal	{emit_label !call_gc_label}\n`;
 	`	nop\n`;
         `{record_frame i.live}\n`;
        	`{emit_label lbl}:\n`;
