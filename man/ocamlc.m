@@ -335,14 +335,16 @@ that file to remove all declarations of unexported names.
 Add the given directory to the list of directories searched for
 compiled interface files (.cmi), compiled object code files
 (.cmo), libraries (.cma), and C libraries specified with
-.B \-cclib\ \-l
-.IR xxx .
+.BI \-cclib\ \-l xxx
+.RB .
 By default, the current directory is searched first, then the
 standard library directory. Directories added with
-.B -I
+.B \-I
 are searched
 after the current directory, in the order in which they were given on
-the command line, but before the standard library directory.
+the command line, but before the standard library directory. See also
+option
+.BR \-nostdlib .
 
 If the given directory starts with
 .BR + ,
@@ -394,6 +396,9 @@ bytecode executables produced with the option
 .B ocamlc\ \-use\-runtime
 .IR runtime-name .
 .TP
+.B \-no-alias-deps
+Do not record dependencies for module aliases.
+.TP
 .B \-no\-app\-funct
 Deactivates the applicative behaviour of functors. With this option,
 each functor application generates new types in its result and
@@ -421,10 +426,14 @@ Ignore non-optional labels in types. Labels cannot be used in
 applications, and parameter order becomes strict.
 .TP
 .B \-nostdlib
-Do not include the standard library directory in the list of
-directories searched for compiled interfaces (see option
-.B \-I
-).
+Do not automatically add the standard library directory to the list of
+directories searched for compiled interface files (.cmi), compiled
+object code files (.cmo), libraries (.cma), and C libraries specified
+with
+.BI \-cclib\ \-l xxx
+.RB .
+See also option
+.BR \-I .
 .TP
 .BI \-o \ exec\-file
 Specify the name of the output file produced by the linker. The
@@ -513,6 +522,12 @@ then the
 .B d
 suffix is supported and gives a debug version of the runtime.
 .TP
+.B \-safe\-string
+Enforce the separation between types
+.BR string \ and\  bytes ,
+thereby making strings read-only. This will become the default in
+a future version of OCaml.
+.TP
 .B \-short\-paths
 When a type is visible under several module-paths, use the shortest
 one when printing the type's name in inferred interfaces and error and
@@ -534,6 +549,13 @@ constructs). Programs compiled with
 are therefore
 slightly faster, but unsafe: anything can happen if the program
 accesses an array or string outside of its bounds.
+.TP
+.B \-unsafe\-string
+Identify the types
+.BR string \ and\  bytes ,
+thereby making strings writable. For reasons of backward compatibility,
+this is the default setting for the moment, but this will change in a future
+version of OCaml.
 .TP
 .BI \-use\-runtime \ runtime\-name
 Generate a bytecode executable file that can be executed on the custom
@@ -767,7 +789,7 @@ mutually recursive types.
 \ \ Unused constructor.
 
 38
-\ \ Unused exception constructor.
+\ \ Unused extension constructor.
 
 39
 \ \ Unused rec flag.
@@ -869,7 +891,7 @@ Note: it is not recommended to use the
 .B \-warn\-error
 option in production code, because it will almost certainly prevent
 compiling your program with later versions of OCaml when they add new
-warnings.
+warnings or modify existing warnings.
 
 The default setting is
 .B \-warn\-error\ -a (all warnings are non-fatal).

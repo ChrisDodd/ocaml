@@ -124,7 +124,8 @@ type constructor_description =
 and constructor_tag =
     Cstr_constant of int                (* Constant constructor (an int) *)
   | Cstr_block of int                   (* Regular constructor (a block) *)
-  | Cstr_exception of Path.t * Location.t (* Exception constructor *)
+  | Cstr_extension of Path.t * bool     (* Extension constructor
+                                           true if a constant false if a block *)
 
 (* Record label descriptions *)
 
@@ -193,6 +194,7 @@ and type_kind =
     Type_abstract
   | Type_record of label_declaration list  * record_representation
   | Type_variant of constructor_declaration list
+  | Type_open
 
 and label_declaration =
   {
@@ -212,17 +214,19 @@ and constructor_declaration =
     cd_attributes: Parsetree.attributes;
   }
 
+type extension_constructor =
+    { ext_type_path: Path.t;
+      ext_type_params: type_expr list;
+      ext_args: type_expr list;
+      ext_ret_type: type_expr option;
+      ext_private: private_flag;
+      ext_loc: Location.t;
+      ext_attributes: Parsetree.attributes; }
 
 and type_transparence =
     Type_public      (* unrestricted expansion *)
   | Type_new         (* "new" type *)
   | Type_private     (* private type *)
-
-type exception_declaration =
-    { exn_args: type_expr list;
-      exn_loc: Location.t;
-      exn_attributes: Parsetree.attributes;
-     }
 
 (* Type expressions for the class language *)
 
@@ -265,13 +269,14 @@ type module_type =
     Mty_ident of Path.t
   | Mty_signature of signature
   | Mty_functor of Ident.t * module_type option * module_type
+  | Mty_alias of Path.t
 
 and signature = signature_item list
 
 and signature_item =
     Sig_value of Ident.t * value_description
   | Sig_type of Ident.t * type_declaration * rec_status
-  | Sig_exception of Ident.t * exception_declaration
+  | Sig_typext of Ident.t * extension_constructor * ext_status
   | Sig_module of Ident.t * module_declaration * rec_status
   | Sig_modtype of Ident.t * modtype_declaration
   | Sig_class of Ident.t * class_declaration * rec_status
@@ -281,15 +286,22 @@ and module_declaration =
   {
     md_type: module_type;
     md_attributes: Parsetree.attributes;
+    md_loc: Location.t;
   }
 
 and modtype_declaration =
   {
     mtd_type: module_type option;  (* Nonte: abstract *)
     mtd_attributes: Parsetree.attributes;
+    mtd_loc: Location.t;
   }
 
 and rec_status =
     Trec_not                            (* not recursive *)
   | Trec_first                          (* first in a recursive group *)
   | Trec_next                           (* not first in a recursive group *)
+
+and ext_status =
+    Text_first                     (* first constructor of an extension *)
+  | Text_next                      (* not first constructor of an extension *)
+  | Text_exception                 (* an exception *)

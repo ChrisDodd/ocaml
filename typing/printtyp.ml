@@ -247,28 +247,22 @@ let rec uniq = function
 
 let rec normalize_type_path ?(cache=false) env p =
   try
-    let desc = Env.find_type p env in
-    if desc.type_private = Private || desc.type_newtype_level <> None then
-      (p, Id)
-    else match desc.type_manifest with
-      Some ty ->
-        let params = List.map repr desc.type_params in
-        begin match repr ty with
-          {desc = Tconstr (p1, tyl, _)} ->
-            let tyl = List.map repr tyl in
-            if List.length params = List.length tyl
-            && List.for_all2 (==) params tyl
-            then normalize_type_path ~cache env p1
-            else if cache || List.length params <= List.length tyl
-                 || not (uniq tyl) then (p, Id)
-            else
-              let l1 = List.map (index params) tyl in
-              let (p2, s2) = normalize_type_path ~cache env p1 in
-              (p2, compose l1 s2)
-        | ty ->
-            (p, Nth (index params ty))
-        end
-    | None -> (p, Id)
+    let (params, ty, _) = Env.find_type_expansion p env in
+    let params = List.map repr params in
+    match repr ty with
+      {desc = Tconstr (p1, tyl, _)} ->
+        let tyl = List.map repr tyl in
+        if List.length params = List.length tyl
+        && List.for_all2 (==) params tyl
+        then normalize_type_path ~cache env p1
+        else if cache || List.length params <= List.length tyl
+             || not (uniq tyl) then (p, Id)
+        else
+          let l1 = List.map (index params) tyl in
+          let (p2, s2) = normalize_type_path ~cache env p1 in
+          (p2, compose l1 s2)
+    | ty ->
+        (p, Nth (index params ty))
   with
     Not_found -> (p, Id)
 
@@ -793,6 +787,7 @@ let rec tree_of_type_decl id decl =
         cstrs
   | Type_record(l, rep) ->
       List.iter (fun l -> mark_loops l.ld_type) l
+  | Type_open -> ()
   end;
 
   let type_param =
@@ -810,6 +805,8 @@ let rec tree_of_type_decl id decl =
       | Type_variant tll ->
           decl.type_private = Private ||
           List.exists (fun cd -> cd.cd_res <> None) tll
+      | Type_open ->
+          decl.type_manifest = None
     in
     let vari =
       List.map2
@@ -843,8 +840,15 @@ let rec tree_of_type_decl id decl =
     | Type_record(lbls, rep) ->
         tree_of_manifest (Otyp_record (List.map tree_of_label lbls)),
         decl.type_private
+    | Type_open ->
+        tree_of_manifest Otyp_open,
+        Public
   in
-  (name, args, ty, priv, constraints)
+    { otype_name = name;
+      otype_params = args;
+      otype_type = ty;
+      otype_private = priv;
+      otype_cstrs = constraints }
 
 and tree_of_constructor cd =
   let name = Ident.name cd.cd_id in
@@ -858,12 +862,6 @@ and tree_of_constructor cd =
       names := nm;
       (name, args, Some ret)
 
-
-and tree_of_constructor_ret =
-  function
-    | None -> None
-    | Some ret_type -> Some (tree_of_typexp false ret_type)
-
 and tree_of_label l =
   (Ident.name l.ld_id, l.ld_mutable = Mutable, tree_of_typexp false l.ld_type)
 
@@ -873,15 +871,55 @@ let tree_of_type_declaration id decl rs =
 let type_declaration id ppf decl =
   !Oprint.out_sig_item ppf (tree_of_type_declaration id decl Trec_first)
 
-(* Print an exception declaration *)
+(* Print an extension declaration *)
 
-let tree_of_exception_declaration id decl =
-  reset_and_mark_loops_list decl.exn_args;
-  let tyl = tree_of_typlist false decl.exn_args in
-  Osig_exception (Ident.name id, tyl)
+let tree_of_extension_constructor id ext es =
+  reset ();
+  let ty_name = Path.name ext.ext_type_path in
+  let ty_params = filter_params ext.ext_type_params in
+  List.iter add_alias ty_params;
+  List.iter mark_loops ty_params;
+  List.iter check_name_of_type (List.map proxy ty_params);
+  List.iter mark_loops ext.ext_args;
+  may mark_loops ext.ext_ret_type;
+  let type_param =
+    function
+    | Otyp_var (_, id) -> id
+    | _ -> "?"
+  in
+  let ty_params =
+    List.map (fun ty -> type_param (tree_of_typexp false ty)) ty_params
+  in
+  let name = Ident.name id in
+  let args, ret =
+    match ext.ext_ret_type with
+    | None -> (tree_of_typlist false ext.ext_args, None)
+    | Some res ->
+        let nm = !names in
+        names := [];
+        let ret = tree_of_typexp false res in
+        let args = tree_of_typlist false ext.ext_args in
+        names := nm;
+        (args, Some ret)
+  in
+  let ext =
+    { oext_name = name;
+      oext_type_name = ty_name;
+      oext_type_params = ty_params;
+      oext_args = args;
+      oext_ret_type = ret;
+      oext_private = ext.ext_private }
+  in
+  let es =
+    match es with
+        Text_first -> Oext_first
+      | Text_next -> Oext_next
+      | Text_exception -> Oext_exception
+  in
+    Osig_typext (ext, es)
 
-let exception_declaration id ppf decl =
-  !Oprint.out_sig_item ppf (tree_of_exception_declaration id decl)
+let extension_constructor id ppf ext =
+  !Oprint.out_sig_item ppf (tree_of_extension_constructor id ext Text_first)
 
 (* Print a value declaration *)
 
@@ -1119,9 +1157,11 @@ let rec tree_of_modtype = function
       let res =
         match ty_arg with None -> tree_of_modtype ty_res
         | Some mty ->
-            wrap_env (Env.add_module param mty) tree_of_modtype ty_res
+            wrap_env (Env.add_module ~arg:true param mty) tree_of_modtype ty_res
       in
       Omty_functor (Ident.name param, may_map tree_of_modtype ty_arg, res)
+  | Mty_alias p ->
+      Omty_alias (tree_of_path p)
 
 and tree_of_signature sg =
   wrap_env (fun env -> env) (tree_of_signature_rec !printing_env) sg
@@ -1143,8 +1183,8 @@ and tree_of_signature_rec env' = function
         | Sig_type(id, decl, rs) ->
             hide_rec_items (item :: rem);
             [Osig_type(tree_of_type_decl id decl, tree_of_rec rs)]
-        | Sig_exception(id, decl) ->
-            [tree_of_exception_declaration id decl]
+        | Sig_typext(id, ext, es) ->
+            [tree_of_extension_constructor id ext es]
         | Sig_module(id, md, rs) ->
             [Osig_module (Ident.name id, tree_of_modtype md.md_type,
                           tree_of_rec rs)]

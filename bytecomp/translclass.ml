@@ -115,6 +115,9 @@ let name_pattern default p =
   | Tpat_alias(p, id, _) -> id
   | _ -> Ident.create default
 
+let normalize_cl_path cl path =
+  Env.normalize_path (Some cl.cl_loc) cl.cl_env path
+
 let rec build_object_init cl_table obj params inh_init obj_init cl =
   match cl.cl_desc with
     Tcl_ident ( path, _, _) ->
@@ -124,7 +127,8 @@ let rec build_object_init cl_table obj params inh_init obj_init cl =
         match envs with None -> []
         | Some envs -> [Lprim(Pfield (List.length inh_init + 1), [Lvar envs])]
       in
-      ((envs, (obj_init, path)::inh_init),
+      ((envs, (obj_init, normalize_cl_path cl path)
+        ::inh_init),
        mkappl(Lvar obj_init, env @ [obj]))
   | Tcl_structure str ->
       create_object cl_table obj (fun obj ->
@@ -141,7 +145,7 @@ let rec build_object_init cl_table obj params inh_init obj_init cl =
                | Tcf_val (_, _, id, Tcfk_concrete (_, exp), _) ->
                    (inh_init, lsequence (set_inst_var obj id exp) obj_init,
                     has_init)
-               | Tcf_method _ | Tcf_val _ | Tcf_constraint _ ->
+               | Tcf_method _ | Tcf_val _ | Tcf_constraint _ | Tcf_attribute _ ->
                    (inh_init, obj_init, has_init)
                | Tcf_initializer _ ->
                    (inh_init, obj_init, true)
@@ -253,7 +257,7 @@ let rec build_class_init cla cstr super inh_init cl_init msubst top cl =
     Tcl_ident ( path, _, _) ->
       begin match inh_init with
         (obj_init, path')::inh_init ->
-          let lpath = transl_path path in
+          let lpath = transl_path ~loc:cl.cl_loc cl.cl_env path in
           (inh_init,
            Llet (Strict, obj_init,
                  mkappl(Lprim(Pfield 1, [lpath]), Lvar cla ::
@@ -276,7 +280,9 @@ let rec build_class_init cla cstr super inh_init cl_init msubst top cl =
                     inh_init cl_init msubst top cl in
                 (inh_init, cl_init, [], values)
             | Tcf_val (name, _, id, _, over) ->
-                let values = if over then values else (name.txt, id) :: values in
+                let values =
+                  if over then values else (name.txt, id) :: values
+                in
                 (inh_init, cl_init, methods, values)
             | Tcf_method (_, _, Tcfk_virtual _)
             | Tcf_constraint _
@@ -292,14 +298,16 @@ let rec build_class_init cla cstr super inh_init cl_init msubst top cl =
                   else met_code
                 in
                 (inh_init, cl_init,
-                 Lvar (Meths.find name.txt str.cstr_meths) :: met_code @ methods,
+                 Lvar(Meths.find name.txt str.cstr_meths) :: met_code @ methods,
                  values)
             | Tcf_initializer exp ->
                 (inh_init,
                  Lsequence(mkappl (oo_prim "add_initializer",
                                    Lvar cla :: msubst false (transl_exp exp)),
                            cl_init),
-                 methods, values))
+                 methods, values)
+            | Tcf_attribute _ ->
+                (inh_init, cl_init, methods, values))
           str.cstr_fields
           (inh_init, cl_init, [], [])
       in
@@ -331,8 +339,8 @@ let rec build_class_init cla cstr super inh_init cl_init msubst top cl =
       let cl = ignore_cstrs cl in
       begin match cl.cl_desc, inh_init with
         Tcl_ident (path, _, _), (obj_init, path')::inh_init ->
-          assert (Path.same path path');
-          let lpath = transl_path path in
+          assert (Path.same (normalize_cl_path cl path) path');
+          let lpath = transl_normal_path path' in
           let inh = Ident.create "inh"
           and ofs = List.length vals + 1
           and valids, methids = super in
@@ -398,7 +406,7 @@ let rec transl_class_rebind obj_init cl vf =
         try if (Env.find_class path cl.cl_env).cty_new = None then raise Exit
         with Not_found -> raise Exit
       end;
-      (path, obj_init)
+      (normalize_cl_path cl path, obj_init)
   | Tcl_fun (_, pat, _, cl, partial) ->
       let path, obj_init = transl_class_rebind obj_init cl vf in
       let build params rem =
@@ -446,7 +454,7 @@ let transl_class_rebind ids cl vf =
     if not (Translcore.check_recursive_lambda ids obj_init') then
       raise(Error(cl.cl_loc, Illegal_class_expr));
     let id = (obj_init' = lfunction [self] obj_init0) in
-    if id then transl_path path else
+    if id then transl_normal_path path else
 
     let cla = Ident.create "class"
     and new_init = Ident.create "new_init"
@@ -456,7 +464,7 @@ let transl_class_rebind ids cl vf =
     Llet(
     Strict, new_init, lfunction [obj_init] obj_init',
     Llet(
-    Alias, cla, transl_path path,
+    Alias, cla, transl_normal_path path,
     Lprim(Pmakeblock(0, Immutable),
           [mkappl(Lvar new_init, [lfield cla 0]);
            lfunction [table]
@@ -741,7 +749,7 @@ let transl_class ids cl_id pub_meths cl vflag =
     Lprim(Pmakeblock(0, Immutable),
           menv :: List.map (fun id -> Lvar id) !new_ids_init)
   and linh_envs =
-    List.map (fun (_, p) -> Lprim(Pfield 3, [transl_path p]))
+    List.map (fun (_, p) -> Lprim(Pfield 3, [transl_normal_path p]))
       (List.rev inh_init)
   in
   let make_envs lam =
@@ -758,7 +766,7 @@ let transl_class ids cl_id pub_meths cl vflag =
     List.filter
       (fun (_,path) -> List.mem (Path.head path) new_ids) inh_init in
   let inh_keys =
-    List.map (fun (_,p) -> Lprim(Pfield 1, [transl_path p])) inh_paths in
+    List.map (fun (_,p) -> Lprim(Pfield 1, [transl_normal_path p])) inh_paths in
   let lclass lam =
     Llet(Strict, class_init,
          Lfunction(Curried, [cla], def_ids cla cl_init), lam)
@@ -804,7 +812,7 @@ let transl_class ids cl_id pub_meths cl vflag =
 (*
     let cl_id = ci.ci_id_class in
 (* TODO: cl_id is used somewhere else as typesharp ? *)
-  let _arity = List.length (fst ci.ci_params) in
+  let _arity = List.length ci.ci_params in
   let pub_meths = m in
   let cl = ci.ci_expr in
   let vflag = vf in
