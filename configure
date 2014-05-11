@@ -904,15 +904,15 @@ case "$arch,$system" in
                     *gcc*) aspp="${TOOLPREF}gcc -c";;
                     *) aspp="${TOOLPREF}as -P";;
                   esac;;
+  mips64,*)       as="${TOOLPREF}as -mabi=64 -KPIC"
+		  aspp="${TOOLPREF}gcc -mabi=64 -c";;
+  mips,*)         as="${TOOLPREF}as -mabi=n32 -KPIC"
+		  aspp="${TOOLPREF}gcc -mabi=n32 -c";;
   *,freebsd)      as="${TOOLPREF}as"
                   aspp="${TOOLPREF}cc -c";;
   amd64,*|arm,*|arm64,*|i386,*|power,bsd*|sparc,*)
                   as="${TOOLPREF}as"
                   aspp="${TOOLPREF}gcc -c";;
-  mips64,*)       as="${TOOLPREF}as -mabi=64 -KPIC"
-		  aspp="${TOOLPREF}gcc -mabi=64 -c";;
-  mips,*)         as="${TOOLPREF}as -mabi=n32 -KPIC"
-		  aspp="${TOOLPREF}gcc -mabi=n32 -c";;
 esac
 
 if test -n "$asoption"; then as="$asoption"; fi

@@ -161,7 +161,7 @@ let rec instr_uses_gp i =
   | Lop(Itailcall_imm s) -> true
   | Lop(Iextcall(_, _)) -> true
   | Lop(Iload(_, Ibased(_, _))) -> true
-  | Lop(Istore(_, Ibased(_, _))) -> true
+  | Lop(Istore(_, Ibased(_, _), _)) -> true
   | Lop(Ialloc _) -> true
   | Lop(Iintop(Icheckbound)) -> true
   | Lop(Iintop_imm(Icheckbound, _)) -> true
@@ -239,13 +239,19 @@ let emit_instr i =
           | _ ->
               fatal_error "Emit_mips: Imove"
         end
-    | Lop(Iconst_int n) ->
+    | Lop(Iconst_int n | Iconst_blockheader n) ->
         if n = 0n then
           `	move	{emit_reg i.res.(0)}, $0\n`
         else
           `	li	{emit_reg i.res.(0)}, {emit_nativeint n}\n`
-    | Lop(Iconst_float s) ->
-        `	li.d	{emit_reg i.res.(0)}, {emit_string s}\n`
+    | Lop(Iconst_float f) ->
+        let lbl = new_label() in
+        `       .section        .rodata\n`;
+        `       .align  3\n`;
+        `{emit_label lbl}:\n`;
+        emit_float64_directive ".quad" (Int64.bits_of_float f);
+        `       .text\n`;
+        `       ldc1    {emit_reg i.res.(0)}, {emit_label lbl}\n`
     | Lop(Iconst_symbol s) ->
         `	la	{emit_reg i.res.(0)}, {emit_symbol s}\n`
     | Lop(Icall_ind) ->
@@ -321,7 +327,7 @@ let emit_instr i =
               | _ -> "lw" in
             `	{emit_string load_instr}	{emit_reg dest}, {emit_addressing addr i.arg 0}\n`
         end
-    | Lop(Istore(chunk, addr)) ->
+    | Lop(Istore(chunk, addr, _)) ->
         let src = i.arg.(0) in
         begin match chunk with
           Double_u ->
@@ -542,9 +548,9 @@ let emit_item = function
   | Cint n ->
       `	.word	{emit_nativeint n}\n`
   | Csingle f ->
-      emit_float32_directive ".word" f
+      emit_float32_directive ".word" (Int32.bits_of_float f)
   | Cdouble f ->
-      emit_float64_split_directive ".word" f
+      emit_float64_split_directive ".word" (Int64.bits_of_float f)
   | Csymbol_address s ->
       `	.word	{emit_symbol s}\n`
   | Clabel_address lbl ->
